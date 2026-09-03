@@ -1,0 +1,22 @@
+title: Windows Successful Logon
+id: a99a383f-83a4-43c7-9892-40cbbc866bea
+name: windows_successful_logon
+status: test
+description: Detects successful Windows authentication recorded by Security Event ID 4624.
+author: Joshua Roberts
+date: 2026-08-05
+
+logsource:
+  product: windows
+  service: security
+
+detection:
+  selection:
+    EventID: 4624
+  condition: selection
+
+falsepositives:
+  - Normal user authentication
+  - Service and system logons
+
+level: informational

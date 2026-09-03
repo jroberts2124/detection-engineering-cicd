@@ -1,0 +1,30 @@
+title: Suspicious PowerShell Script Block
+id: 7dd6ed86-2bd8-49ea-9668-d2b0e4c50a46
+name: suspicious_powershell_script
+status: test
+description: Detects PowerShell script blocks containing commands commonly associated with malicious PowerShell execution.
+author: Joshua Roberts
+date: 2026-08-05
+
+logsource:
+  product: windows
+  category: ps_script
+
+detection:
+  selection:
+    ScriptBlockText|contains:
+      - 'Invoke-Expression'
+      - 'IEX'
+      - 'DownloadString'
+      - 'FromBase64String'
+  condition: selection
+
+falsepositives:
+  - Legitimate administrative scripts
+  - Security testing activity
+
+level: medium
+
+tags:
+  - attack.execution
+  - attack.t1059.001

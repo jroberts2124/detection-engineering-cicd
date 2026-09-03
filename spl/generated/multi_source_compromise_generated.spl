@@ -1,0 +1,22 @@
+﻿source="WinEventLog:Security" EventCode=4625
+
+| bin _time span=5m
+| stats count as event_count by _time TargetUserName Computer
+
+| search event_count >= 5
+
+| multisearch
+[ search source="WinEventLog:Security" EventCode=4625
+
+| bin _time span=5m
+| stats count as event_count by _time TargetUserName Computer
+
+| search event_count >= 5 | eval event_type="windows_bruteforce" ]
+[ search source="WinEventLog:Security" EventCode=4624 | eval event_type="windows_successful_logon" ]
+[ search Image IN ("*\\powershell.exe", "*\\pwsh.exe") | eval event_type="windows_powershell_process" ]
+[ search ScriptBlockText IN ("*Invoke-Expression*", "*IEX*", "*DownloadString*", "*FromBase64String*") | eval event_type="suspicious_powershell_script" ]
+
+| bin _time span=10m
+| stats dc(event_type) as event_type_count by _time Computer
+
+| search event_type_count >= 4

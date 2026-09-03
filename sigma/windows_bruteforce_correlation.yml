@@ -1,0 +1,24 @@
+title: Multiple Failed Windows Logons
+id: 62fd754a-aab8-48e7-a840-e3a75ee19a92
+name: windows_bruteforce
+status: test
+description: Detects five or more failed Windows logons for the same user within five minutes.
+author: Joshua Roberts
+date: 2026-08-05
+
+correlation:
+  type: event_count
+  rules:
+    - windows_failed_logon
+  group-by:
+    - TargetUserName
+    - Computer
+  timespan: 5m
+  condition:
+    gte: 5
+
+level: medium
+
+tags:
+  - attack.credential-access
+  - attack.t1110

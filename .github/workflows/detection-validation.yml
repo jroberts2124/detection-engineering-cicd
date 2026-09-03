@@ -1,0 +1,53 @@
+name: Detection Validation
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-build:
+    name: Validate and Build Detections
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install detection tools
+        run: |
+          python -m pip install --upgrade pip pipx
+          python -m pipx install contentctl
+          python -m pipx install sigma-cli
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install Sigma Splunk backend
+        run: sigma plugin install splunk
+
+      - name: Validate Sigma rules
+        run: sigma check sigma
+
+      - name: Validate contentctl project
+        run: contentctl validate
+
+      - name: Build Splunk content pack
+        run: contentctl build
+
+      - name: Upload Splunk content pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: splunk-content-pack
+          path: dist/ContentPack-latest.tar.gz
+          if-no-files-found: error

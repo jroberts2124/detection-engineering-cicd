@@ -1,0 +1,52 @@
+index=main sourcetype="XmlWinEventLog:Security"
+| rex field=_raw "<EventID[^>]*>(?<EventID>\d+)</EventID>"
+| rex field=_raw "Name=[\"']TargetUserName[\"']>(?<TargetUserName>[^<]*)"
+| search EventID=4625
+| bin _time span=5m
+| stats count as FailedLogons by _time host TargetUserName
+| where FailedLogons>=5
+| eval Signal="Failed Logon Burst"
+| append [
+    search index=main sourcetype="XmlWinEventLog:Security"
+    | rex field=_raw "<EventID[^>]*>(?<EventID>\d+)</EventID>"
+    | rex field=_raw "Name=[\"']TargetUserName[\"']>(?<TargetUserName>[^<]*)"
+    | search EventID=4624
+    | eval Signal="Successful Logon"
+]
+| append [
+    search index=main sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
+    | rex field=_raw "<EventID[^>]*>(?<EventID>\d+)</EventID>"
+    | rex field=_raw "Name=[\"']Image[\"']>(?<Image>[^<]+)"
+    | rex field=_raw "Name=[\"']CommandLine[\"']>(?<CommandLine>[^<]+)"
+    | search EventID=1
+    | search Image IN ("*\\powershell.exe", "*\\pwsh.exe")
+    | eval Signal="PowerShell Process"
+]
+| append [
+    search index=main sourcetype="XmlWinEventLog:Microsoft-Windows-PowerShell/Operational"
+    | rex field=_raw "<EventID[^>]*>(?<EventID>\d+)</EventID>"
+    | rex field=_raw "Name=[\"']ScriptBlockText[\"']>(?<ScriptBlockText>[^<]+)"
+    | search EventID=4104
+    | search ScriptBlockText IN (
+        "*Invoke-Expression*",
+        "*IEX*",
+        "*DownloadString*",
+        "*FromBase64String*"
+    )
+    | eval Signal="Suspicious PowerShell Script"
+]
+| bin _time span=10m
+| stats
+    dc(Signal) as SignalCount
+    values(Signal) as MatchedSignals
+    values(TargetUserName) as Users
+    values(Image) as ProcessImages
+    values(CommandLine) as CommandLines
+    max(FailedLogons) as FailedLogons
+    earliest(_time) as FirstSeen
+    latest(_time) as LastSeen
+    by _time host
+| where SignalCount>=4
+| convert ctime(FirstSeen) ctime(LastSeen)
+| table _time host Users FailedLogons SignalCount MatchedSignals ProcessImages CommandLines FirstSeen LastSeen
+| sort -_time

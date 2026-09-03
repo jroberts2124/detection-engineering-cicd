@@ -1,0 +1,42 @@
+index=main host="DESKTOP-2F5R223" earliest=-10m latest=now
+(
+    sourcetype="XmlWinEventLog:Security"
+    OR sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
+    OR sourcetype="XmlWinEventLog:Microsoft-Windows-PowerShell/Operational"
+)
+| rex field=_raw "<EventID[^>]*>(?<EventID>\d+)</EventID>"
+| rex field=_raw "Name=[\"']TargetUserName[\"']>(?<TargetUserName>[^<]*)"
+| rex field=_raw "Name=[\"']Image[\"']>(?<Image>[^<]+)"
+| rex field=_raw "Name=[\"']ScriptBlockText[\"']>(?<ScriptBlockText>[^<]+)"
+| eval Signal=case(
+    EventID="4625" AND TargetUserName="DetectionLabFakeUser", "Failed Logon",
+    EventID="4624" AND TargetUserName="Josh", "Successful Logon",
+    EventID="1" AND like(lower(Image),"%powershell.exe"), "PowerShell Process",
+    EventID="4104" AND (
+        like(lower(ScriptBlockText),"%frombase64string%")
+        OR like(lower(ScriptBlockText),"%invoke-expression%")
+        OR like(lower(ScriptBlockText),"%art-marker.txt%")
+    ), "Suspicious Script"
+)
+| where isnotnull(Signal)
+| eval FailedLogonEvent=if(Signal="Failed Logon",1,0)
+| eval SuccessfulLogonEvent=if(Signal="Successful Logon",1,0)
+| eval PowerShellProcessEvent=if(Signal="PowerShell Process",1,0)
+| eval SuspiciousScriptEvent=if(Signal="Suspicious Script",1,0)
+| stats
+    sum(FailedLogonEvent) as FailedLogons
+    max(SuccessfulLogonEvent) as SuccessfulLogon
+    max(PowerShellProcessEvent) as PowerShellProcess
+    max(SuspiciousScriptEvent) as SuspiciousScript
+    values(Signal) as MatchedSignals
+    earliest(_time) as FirstSeen
+    latest(_time) as LastSeen
+    by host
+| eval DurationSeconds=round(LastSeen-FirstSeen,1)
+| where FailedLogons>=5
+    AND SuccessfulLogon=1
+    AND PowerShellProcess=1
+    AND SuspiciousScript=1
+    AND DurationSeconds<=600
+| convert ctime(FirstSeen) ctime(LastSeen)
+| table host FailedLogons SuccessfulLogon PowerShellProcess SuspiciousScript MatchedSignals FirstSeen LastSeen DurationSeconds

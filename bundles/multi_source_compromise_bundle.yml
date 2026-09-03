@@ -1,0 +1,160 @@
+title: Windows Failed Logon
+id: 6413c13d-d7a5-4e25-9b65-2f75f8335791
+name: windows_failed_logon
+status: test
+description: Detects failed authentication attempts recorded by Windows Security Event ID 4625.
+author: Joshua Roberts
+date: 2026-08-05
+
+logsource:
+  product: windows
+  service: security
+
+detection:
+  selection:
+    EventID: 4625
+  condition: selection
+
+falsepositives:
+  - Users entering incorrect passwords
+
+level: low
+
+tags:
+  - attack.credential-access
+  - attack.t1110
+---
+title: Multiple Failed Windows Logons
+id: 62fd754a-aab8-48e7-a840-e3a75ee19a92
+name: windows_bruteforce
+status: test
+description: Detects five or more failed Windows logons for the same user within five minutes.
+author: Joshua Roberts
+date: 2026-08-05
+
+correlation:
+  type: event_count
+  rules:
+    - windows_failed_logon
+  group-by:
+    - TargetUserName
+    - Computer
+  timespan: 5m
+  condition:
+    gte: 5
+
+level: medium
+
+tags:
+  - attack.credential-access
+  - attack.t1110
+---
+title: Windows Successful Logon
+id: a99a383f-83a4-43c7-9892-40cbbc866bea
+name: windows_successful_logon
+status: test
+description: Detects successful Windows authentication recorded by Security Event ID 4624.
+author: Joshua Roberts
+date: 2026-08-05
+
+logsource:
+  product: windows
+  service: security
+
+detection:
+  selection:
+    EventID: 4624
+  condition: selection
+
+falsepositives:
+  - Normal user authentication
+  - Service and system logons
+
+level: informational
+---
+title: Windows PowerShell Process Execution
+id: c884b28b-b314-46ba-aeda-e35b6916748e
+name: windows_powershell_process
+status: test
+description: Detects PowerShell process execution using Windows process creation telemetry.
+author: Joshua Roberts
+date: 2026-08-05
+
+logsource:
+  category: process_creation
+  product: windows
+
+detection:
+  selection:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  condition: selection
+
+falsepositives:
+  - Legitimate administrative PowerShell usage
+  - Automated management scripts
+
+level: low
+
+tags:
+  - attack.execution
+  - attack.t1059.001
+---
+title: Suspicious PowerShell Script Block
+id: 7dd6ed86-2bd8-49ea-9668-d2b0e4c50a46
+name: suspicious_powershell_script
+status: test
+description: Detects PowerShell script blocks containing commands commonly associated with malicious PowerShell execution.
+author: Joshua Roberts
+date: 2026-08-05
+
+logsource:
+  product: windows
+  category: ps_script
+
+detection:
+  selection:
+    ScriptBlockText|contains:
+      - 'Invoke-Expression'
+      - 'IEX'
+      - 'DownloadString'
+      - 'FromBase64String'
+  condition: selection
+
+falsepositives:
+  - Legitimate administrative scripts
+  - Security testing activity
+
+level: medium
+
+tags:
+  - attack.execution
+  - attack.t1059.001
+---
+title: Multi-Source Authentication and PowerShell Attack Chain
+id: d77fc910-1c80-42db-9819-34939ada4fea
+name: multi_source_compromise
+status: test
+description: Detects brute-force authentication activity followed by successful authentication, PowerShell process execution, and suspicious PowerShell script activity on the same Windows endpoint.
+author: Joshua Roberts
+date: 2026-08-05
+
+correlation:
+  type: temporal
+  rules:
+    - windows_bruteforce
+    - windows_successful_logon
+    - windows_powershell_process
+    - suspicious_powershell_script
+  group-by:
+    - Computer
+  timespan: 10m
+
+level: high
+
+tags:
+  - attack.credential-access
+  - attack.execution
+  - attack.t1110
+  - attack.t1059.001

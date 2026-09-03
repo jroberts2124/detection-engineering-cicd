@@ -1,0 +1,31 @@
+name: Windows Security 4625
+id: 97291142-ccf5-4f7b-8bfb-b60a64fc8b7a
+version: 1
+date: '2026-09-03'
+author: Joshua Roberts
+description: Data source object for failed Windows logon Event ID 4625.
+source: XmlWinEventLog:Security
+sourcetype: xmlwineventlog
+separator: EventID
+supported_TA:
+  - name: Splunk Add-on for Microsoft Windows
+    url: https://splunkbase.splunk.com/app/742/
+    version: 9.0.1
+fields:
+  - _time
+  - Computer
+  - EventCode
+  - EventID
+  - FailureReason
+  - IpAddress
+  - LogonType
+  - Status
+  - SubStatus
+  - TargetDomainName
+  - TargetUserName
+  - WorkstationName
+  - host
+  - source
+  - sourcetype
+example_log: >-
+  <Event><System><EventID>4625</EventID><Computer>WORKSTATION</Computer></System><EventData><Data Name='TargetUserName'>ExampleUser</Data><Data Name='FailureReason'>Unknown user name or bad password</Data><Data Name='IpAddress'>127.0.0.1</Data></EventData></Event>

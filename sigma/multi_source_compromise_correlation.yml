@@ -1,0 +1,26 @@
+title: Multi-Source Authentication and PowerShell Attack Chain
+id: d77fc910-1c80-42db-9819-34939ada4fea
+name: multi_source_compromise
+status: test
+description: Detects brute-force authentication activity followed by successful authentication, PowerShell process execution, and suspicious PowerShell script activity on the same Windows endpoint.
+author: Joshua Roberts
+date: 2026-08-05
+
+correlation:
+  type: temporal
+  rules:
+    - windows_bruteforce
+    - windows_successful_logon
+    - windows_powershell_process
+    - suspicious_powershell_script
+  group-by:
+    - Computer
+  timespan: 10m
+
+level: high
+
+tags:
+  - attack.credential-access
+  - attack.execution
+  - attack.t1110
+  - attack.t1059.001

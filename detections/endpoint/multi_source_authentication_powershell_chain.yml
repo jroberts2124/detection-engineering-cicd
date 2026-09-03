@@ -1,0 +1,86 @@
+name: Multi-Source Authentication PowerShell Chain
+id: c7b80dc2-93e9-4ea6-a312-81f756ac07a1
+version: 1
+date: '2026-09-02'
+author: Joshua Roberts
+status: production
+type: Correlation
+description: >-
+  Detects five or more failed Windows logons followed by a successful logon,
+  PowerShell process execution, and suspicious PowerShell script activity on
+  the same endpoint within a ten-minute period.
+data_source:
+- Powershell 4104
+- Sysmon EventID 1
+- Windows Security 4624
+- Windows Security 4625
+search: index=main sourcetype="XmlWinEventLog:Security" | rex field=_raw "<EventID[^>]*>(?<EventID>\d+)</EventID>"
+  | rex field=_raw "Name=[\"']TargetUserName[\"']>(?<TargetUserName>[^<]*)" | search
+  EventID=4625 | bin _time span=5m | stats count as FailedLogons by _time host TargetUserName
+  | where FailedLogons>=5 | eval Signal="Failed Logon Burst" | append [     search
+  index=main sourcetype="XmlWinEventLog:Security"     | rex field=_raw "<EventID[^>]*>(?<EventID>\d+)</EventID>"     |
+  rex field=_raw "Name=[\"']TargetUserName[\"']>(?<TargetUserName>[^<]*)"     | search
+  EventID=4624     | eval Signal="Successful Logon" ] | append [     search index=main
+  sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"     | rex field=_raw
+  "<EventID[^>]*>(?<EventID>\d+)</EventID>"     | rex field=_raw "Name=[\"']Image[\"']>(?<Image>[^<]+)"     |
+  rex field=_raw "Name=[\"']CommandLine[\"']>(?<CommandLine>[^<]+)"     | search EventID=1     |
+  search Image IN ("*\\powershell.exe", "*\\pwsh.exe")     | eval Signal="PowerShell
+  Process" ] | append [     search index=main sourcetype="XmlWinEventLog:Microsoft-Windows-PowerShell/Operational"     |
+  rex field=_raw "<EventID[^>]*>(?<EventID>\d+)</EventID>"     | rex field=_raw "Name=[\"']ScriptBlockText[\"']>(?<ScriptBlockText>[^<]+)"     |
+  search EventID=4104     | search ScriptBlockText IN (         "*Invoke-Expression*",         "*IEX*",         "*DownloadString*",         "*FromBase64String*"     )     |
+  eval Signal="Suspicious PowerShell Script" ] | bin _time span=10m | stats     dc(Signal)
+  as SignalCount     values(Signal) as MatchedSignals     values(TargetUserName) as
+  Users     values(Image) as ProcessImages     values(CommandLine) as CommandLines     max(FailedLogons)
+  as FailedLogons     earliest(_time) as FirstSeen     latest(_time) as LastSeen     by
+  _time host | where SignalCount>=4 | convert ctime(FirstSeen) ctime(LastSeen) | table
+  _time host Users FailedLogons SignalCount MatchedSignals ProcessImages CommandLines
+  FirstSeen LastSeen | sort -_time | | `multi_source_authentication_powershell_chain_filter`
+how_to_implement: >-
+  Collect Windows Security events 4624 and 4625, Sysmon process creation event
+  ID 1, and PowerShell script block event 4104. Update the index, sourcetypes,
+  and field extractions to match the target Splunk environment.
+
+known_false_positives: >-
+  Administrative PowerShell activity occurring after repeated user password
+  mistakes may trigger this detection. Validate the account, source endpoint,
+  process command line, and script contents before escalating.
+references:
+  - https://attack.mitre.org/techniques/T1110/
+  - https://attack.mitre.org/techniques/T1059/001/
+  - https://github.com/redcanaryco/atomic-red-team
+drilldown_searches:
+  - name: View original correlation result for $host$
+    search: >-
+      %original_detection_search%
+      | search host="$host$"
+      | table _time host Users FailedLogons SignalCount MatchedSignals
+        ProcessImages CommandLines FirstSeen LastSeen
+    earliest_offset: $info_min_time$
+    latest_offset: $info_max_time$
+
+  - name: View PowerShell activity for $host$
+    search: >-
+      index=main host="$host$"
+      (sourcetype="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational"
+      OR sourcetype="XmlWinEventLog:Microsoft-Windows-PowerShell/Operational")
+      | rex field=_raw "<EventID[^>]*>(?<EventID>\d+)</EventID>"
+      | rex field=_raw "Name=[\"']Image[\"']>(?<Image>[^<]+)"
+      | rex field=_raw "Name=[\"']CommandLine[\"']>(?<CommandLine>[^<]+)"
+      | rex field=_raw "Name=[\"']ScriptBlockText[\"']>(?<ScriptBlockText>[^<]+)"
+      | table _time host EventID Image CommandLine ScriptBlockText
+      | sort -_time
+    earliest_offset: $info_min_time$
+    latest_offset: $info_max_time$
+tags:
+  analytic_story: []
+  asset_type: Windows
+  mitre_attack_id:
+  - T1110
+  - T1059.001
+  product:
+  - Splunk Enterprise
+  - Splunk Enterprise Security
+  - Splunk Cloud
+  security_domain: endpoint
+  cve: []
+tests: []

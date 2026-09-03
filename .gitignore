@@ -1,0 +1,22 @@
+# Generated contentctl build
+dist/
+
+# Python environments and cache
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local environment and secrets
+.env
+.env.*
+*.log
+
+# Editor settings
+.vscode/
+.idea/
+
+# Operating-system files
+.DS_Store
+Thumbs.db

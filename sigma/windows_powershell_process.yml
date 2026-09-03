@@ -1,0 +1,28 @@
+title: Windows PowerShell Process Execution
+id: c884b28b-b314-46ba-aeda-e35b6916748e
+name: windows_powershell_process
+status: test
+description: Detects PowerShell process execution using Windows process creation telemetry.
+author: Joshua Roberts
+date: 2026-08-05
+
+logsource:
+  category: process_creation
+  product: windows
+
+detection:
+  selection:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  condition: selection
+
+falsepositives:
+  - Legitimate administrative PowerShell usage
+  - Automated management scripts
+
+level: low
+
+tags:
+  - attack.execution
+  - attack.t1059.001

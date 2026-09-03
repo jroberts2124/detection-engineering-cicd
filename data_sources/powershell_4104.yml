@@ -1,0 +1,26 @@
+name: Powershell 4104
+id: 3b8717dc-352d-4c70-84ef-4a34a54d3710
+version: 1
+date: '2026-09-03'
+author: Joshua Roberts
+description: Data source object for PowerShell Script Block Logging Event ID 4104.
+source: XmlWinEventLog:Microsoft-Windows-PowerShell/Operational
+sourcetype: xmlwineventlog
+separator: EventID
+supported_TA:
+  - name: Splunk Add-on for Microsoft Windows
+    url: https://splunkbase.splunk.com/app/742/
+    version: 9.0.1
+fields:
+  - _time
+  - Computer
+  - EventCode
+  - EventID
+  - ScriptBlockId
+  - ScriptBlockText
+  - UserID
+  - host
+  - source
+  - sourcetype
+example_log: >-
+  <Event><System><EventID>4104</EventID><Computer>WORKSTATION</Computer></System><EventData><Data Name='ScriptBlockText'>Write-Output "PowerShell script block example"</Data></EventData></Event>
