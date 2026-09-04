@@ -21,6 +21,16 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Create required contentctl directories
+        run: |
+          mkdir -p lookups
+          mkdir -p baselines
+          mkdir -p dashboards
+          mkdir -p investigations
+          mkdir -p playbooks
+          mkdir -p reporting
+          mkdir -p removed 
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
